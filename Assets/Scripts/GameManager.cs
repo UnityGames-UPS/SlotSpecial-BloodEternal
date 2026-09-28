@@ -31,7 +31,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private TMP_Text gameStateText;
     [SerializeField] private Button StopSpin_Button;
     [SerializeField] private Button Turbo_Button;
-    [SerializeField] private GameObject Turbo_Anim;
+    [SerializeField] private Button TurboGlow_Button;
 
     [Header("For auto spins")]
     [SerializeField] private Button AutoSpin_Button;
@@ -74,12 +74,11 @@ public class GameManager : MonoBehaviour
     private Coroutine autoSpinRoutine;
     private Coroutine freeSpinRoutine;
     private Coroutine iterativeRoutine;
-    [SerializeField] private int maxIterationWinShow;
-    [SerializeField] private int winIterationCount;
 
     [SerializeField] private int freeSpinCount;
 
     [SerializeField] private List<ImageAnimation> VHcomboList;
+    [SerializeField] private List<TMP_Text> winLineText;
     [SerializeField] internal JSFunctCalls JSManager;
 
     [SerializeField] private bool turboMode;
@@ -125,6 +124,7 @@ public class GameManager : MonoBehaviour
         SetButton(StopSpin_Button, () => StartCoroutine(StopSpin()));
 
         SetButton(Turbo_Button, () => ToggleTurboMode());
+        SetButton(TurboGlow_Button , ()=> ToggleTurboMode());
 
         SetButton(CusASUp_Button, () => OnCustomAutoSpin(true));
         SetButton(CusASDown_Button, () => OnCustomAutoSpin(false));
@@ -287,9 +287,9 @@ public class GameManager : MonoBehaviour
     {
         turboMode = !turboMode;
         if (turboMode)
-            Turbo_Anim.SetActive(true);
+            TurboGlow_Button.gameObject.SetActive(true);
         else
-            Turbo_Anim.SetActive(false);
+            TurboGlow_Button.gameObject.SetActive(false);
 
     }
     IEnumerator StopSpin()
@@ -432,12 +432,12 @@ public class GameManager : MonoBehaviour
     bool OnSpinStart()
     {
         isSpinning = true;
-        winIterationCount = 0;
         slotManager.OnlyChangeParent();
         // slotManager.StopIconAnimation();
         PayLineCOntroller.ResetLines(true);
         if (iterativeRoutine != null)
             StopCoroutine(iterativeRoutine);
+        SetActiveWinLineText(-1);
         slotManager.disableIconsPanel.SetActive(false);
         uIManager.playerCurrentWinning.text = "0.000";
         if (currentBalance < currentTotalBet && !isFreeSpin)
@@ -533,47 +533,71 @@ public class GameManager : MonoBehaviour
             winAnimation = true;
             CheckWinPopups(socketController.socketModel.resultGameData.payload.winAmount);
             gameStateText.text = $"you Won: {socketController.socketModel.resultGameData.payload.winAmount.ToString("f3")} ";
-            StartCoroutine(uIManager.WinTextAnim(socketController.socketModel.resultGameData.payload.winAmount));
+
+            // start the winline icon animation right away so it keeps playing behind the win popup instead of waiting for it to close
+            bool showIterativeLines = !isAutoSpin && !isFreeSpin && !turboMode;
+            if (showIterativeLines)
+            {
+                ShowAllWinLinesAtOnce();
+                yield return new WaitForSeconds(0.8f);
+                slotManager.StopIconAnimation();
+                PayLineCOntroller.ResetLines(true);
+
+                iterativeRoutine = StartCoroutine(IterativeWinShowRoutine(Helper.GetListOfSymbolToEmit(socketController.socketModel.resultGameData.payload, socketController.socketModel.initGameData)));
+            }
+            else
+            {
+                ShowAllWinLinesAtOnce();
+            }
+
             yield return new WaitUntil(() => !winAnimation);
+
+            uIManager.UpdatePlayerInfo(socketController.socketModel.playerData, socketController.socketModel.resultGameData.payload.winAmount);
+            audioController.StopWLAaudio();
+            // don't clear the highlight here: the iterative routine keeps it alive on its own, and for
+            // auto/free/turbo spins the highlight should stay visible through the gap until OnSpinStart()
+            // resets it (via OnlyChangeParent) right as the next spin begins - clearing it early leaves a
+            // blank gap before the next spin.
         }
         else
         {
             gameStateText.text = $"better luck next time";
+            ShowAllWinLinesAtOnce();
 
+            uIManager.UpdatePlayerInfo(socketController.socketModel.playerData, socketController.socketModel.resultGameData.payload.winAmount);
+            audioController.StopWLAaudio();
+            slotManager.StopIconAnimation();
         }
 
-        uIManager.UpdatePlayerInfo(socketController.socketModel.playerData, socketController.socketModel.resultGameData.payload.winAmount);
+    }
 
-        if (!isAutoSpin && !isFreeSpin && socketController.socketModel.resultGameData.payload.winAmount > 0 && !turboMode)
+    private void ShowAllWinLinesAtOnce()
+    {
+        SetActiveWinLineText(-1);
+        slotManager.ShowOnlyIcons(Helper.GetSymbolToEmit(socketController.socketModel.resultGameData.payload, socketController.socketModel.initGameData), true);
+        slotManager.ShowOnlyIcons(socketController.socketModel.resultGameData.features.bats.positions, true);
+        for (int i = 0; i < socketController.socketModel.resultGameData.payload.lineWins.Count; i++)
         {
-
-            iterativeRoutine = StartCoroutine(IterativeWinShowRoutine(Helper.GetListOfSymbolToEmit(socketController.socketModel.resultGameData.payload, socketController.socketModel.initGameData)));
-            // yield return iterativeRoutine;
-
+            PayLineCOntroller.GeneratePayline(socketController.socketModel.resultGameData.payload.lineWins[i].lineIndex, false);
         }
-        else
+    }
+
+    private void SetActiveWinLineText(int rowIndex, double lineWinAmount = 0)
+    {
+        for (int j = 0; j < winLineText.Count; j++)
         {
-            slotManager.ShowOnlyIcons(Helper.GetSymbolToEmit(socketController.socketModel.resultGameData.payload, socketController.socketModel.initGameData));
-            slotManager.ShowOnlyIcons(socketController.socketModel.resultGameData.features.bats.positions, true);
-            for (int i = 0; i < socketController.socketModel.resultGameData.payload.lineWins.Count; i++)
-            {
-                PayLineCOntroller.GeneratePayline(socketController.socketModel.resultGameData.payload.lineWins[i].lineIndex, false);
-            }
+            bool isActive = j == rowIndex;
+            winLineText[j].gameObject.SetActive(isActive);
+            if (isActive)
+                winLineText[j].text = lineWinAmount.ToString("f3");
         }
-
-
-        audioController.StopWLAaudio();
-        slotManager.StopIconAnimation();
-
     }
 
     private IEnumerator IterativeWinShowRoutine(List<List<string>> symbolsToEmit)
     {
-        winIterationCount = maxIterationWinShow;
-        while (winIterationCount > 0)
+        while (true)
         {
-            if (winIterationCount != 0)
-                slotManager.StopIconAnimation();
+            slotManager.StopIconAnimation();
             if (socketController.socketModel.resultGameData.features.bats.positions.Count > 0)
             {
                 slotManager.ShowOnlyIcons(socketController.socketModel.resultGameData.features.bats.positions, true);
@@ -583,37 +607,25 @@ public class GameManager : MonoBehaviour
             }
             for (int i = 0; i < symbolsToEmit.Count; i++)
             {
-                if (i != 0)
-                {
-                }
                 slotManager.StopIconAnimation();
                 yield return new WaitForSeconds(0.1f);
 
                 slotManager.StartIconAnimation(symbolsToEmit[i]);
 
-                PayLineCOntroller.GeneratePayline(socketController.socketModel.resultGameData.payload.lineWins[i].lineIndex);
+                LineWin lineWin = socketController.socketModel.resultGameData.payload.lineWins[i];
+                int lineIndex = lineWin.lineIndex;
+                int rowIndex = PayLineCOntroller.paylines[lineIndex][2];
+                SetActiveWinLineText(rowIndex, lineWin.lineWin);
+
+                PayLineCOntroller.GeneratePayline(lineIndex);
                 yield return new WaitForSeconds(0.8f);
                 slotManager.ShowOnlyIcons(socketController.socketModel.resultGameData.features.bats.positions);
 
                 PayLineCOntroller.ResetLines(true);
+                SetActiveWinLineText(-1);
 
             }
-
-
-            winIterationCount--;
         }
-
-        slotManager.StopIconAnimation();
-        slotManager.ShowOnlyIcons(Helper.GetSymbolToEmit(socketController.socketModel.resultGameData.payload, socketController.socketModel.initGameData), true);
-        slotManager.ShowOnlyIcons(socketController.socketModel.resultGameData.features.bats.positions, true);
-        for (int i = 0; i < socketController.socketModel.resultGameData.payload.lineWins.Count; i++)
-        {
-            // for (int j = 0; j < socketController.socketModel.resultGameData.payload.lineWins.Count; j++)
-            // {
-            PayLineCOntroller.GeneratePayline(socketController.socketModel.resultGameData.payload.lineWins[i].lineIndex, false);
-            // }
-        }
-        // slotManager.disableIconsPanel.SetActive(false);
     }
 
     IEnumerator InitiateFreeSpin(List<string> VHPos)                                 //DJ
@@ -858,6 +870,7 @@ public class GameManager : MonoBehaviour
         if (betPerLine_text) betPerLine_text.text = socketController.socketModel.initGameData.bets[betCounter].ToString();
         currentTotalBet = socketController.socketModel.initGameData.bets[betCounter] * socketController.socketModel.initGameData.lines.Count;
         if (totalBet_text) totalBet_text.text = currentTotalBet.ToString();
+        uIManager.PopulateSymbolsPayout(socketController.socketModel.uIData, socketController.socketModel.InitMultipliers, socketController.socketModel.initGameData.bets[betCounter]);
         // if (currentBalance < currentTotalBet)
         //     uIManager.LowBalPopup();
     }
@@ -929,22 +942,8 @@ public class GameManager : MonoBehaviour
 
     void CheckWinPopups(double amount)
     {
-        if (amount >= currentTotalBet * 10 && amount < currentTotalBet * 15)
-        {
-            uIManager.EnableWinPopUp(1);
-        }
-        else if (amount >= currentTotalBet * 15 && amount < currentTotalBet * 20)
-        {
-            uIManager.EnableWinPopUp(2);
-        }
-        else if (amount >= currentTotalBet * 20)
-        {
-            uIManager.EnableWinPopUp(3);
-        }
-        else
-        {
-            uIManager.EnableWinPopUp(0);
-        }
+        bool isBigWin = amount >= currentTotalBet * 10;
+        uIManager.ShowWinPopup(isBigWin, amount);
     }
 
 

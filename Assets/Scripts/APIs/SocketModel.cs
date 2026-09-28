@@ -156,6 +156,7 @@ public class LineWin
 {
     public int lineIndex { get; set; }
     public List<int> positions { get; set; }
+    public double lineWin {get ; set;}
     // public string symbol { get; set; }
     // public int matchCount { get; set; }
     //  public string direction { get; set; }

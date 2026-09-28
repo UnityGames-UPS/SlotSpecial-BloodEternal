@@ -116,10 +116,10 @@ TextureImporter:
       name: BTN_4_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 279
-        width: 101
-        height: 93
+        x: 9
+        y: 283
+        width: 84
+        height: 84
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -138,10 +138,10 @@ TextureImporter:
       name: BTN_4_1
       rect:
         serializedVersion: 2
-        x: 0
-        y: 186
-        width: 101
-        height: 93
+        x: 9
+        y: 190
+        width: 84
+        height: 84
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -160,10 +160,10 @@ TextureImporter:
       name: BTN_4_2
       rect:
         serializedVersion: 2
-        x: 0
-        y: 93
-        width: 101
-        height: 93
+        x: 9
+        y: 96
+        width: 84
+        height: 84
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -182,10 +182,10 @@ TextureImporter:
       name: BTN_4_3
       rect:
         serializedVersion: 2
-        x: 0
-        y: 0
-        width: 101
-        height: 93
+        x: 9
+        y: 3
+        width: 84
+        height: 85
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}

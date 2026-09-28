@@ -6,6 +6,7 @@ using UnityEngine.UI;
 using System.Linq;
 using TMPro;
 using System;
+
 public class UIManager : MonoBehaviour
 {
 
@@ -51,6 +52,7 @@ public class UIManager : MonoBehaviour
     [SerializeField] private Button SoundToggle_button;
     [SerializeField] private Button MusicToggle_button;
     [SerializeField] private Button Mute_button;
+    [SerializeField] private Button UnMute_button;
     [SerializeField] private Sprite empty;
     [SerializeField] private Sprite button;
     private bool isMusic = true;
@@ -58,10 +60,13 @@ public class UIManager : MonoBehaviour
     private bool isMute = false;
 
     [Header("all Win Popup")]
-    [SerializeField] private GameObject specialWinObject;
 
-    [SerializeField] private ImageAnimation normalWinImage;
-    [SerializeField] private TMP_Text specialWinTitle;
+    [SerializeField] private SpineAnimController NormalWin;
+    [SerializeField] private SpineAnimController BigWin;
+
+    [SerializeField] private Vector2 NormalWin_textPosition;
+    [SerializeField] private Vector2 BigWin_textPosition;
+
     [SerializeField] private GameObject WinPopup_Object;
     [SerializeField] private TMP_Text Win_Text;
     [SerializeField] private Button cancelWinButton;
@@ -158,6 +163,7 @@ public class UIManager : MonoBehaviour
         SetButton(MusicToggle_button, ToggleMusic);
         SetButton(SoundToggle_button, ToggleSound);
         SetButton(Mute_button, ToggleMute);
+        SetButton(UnMute_button, ToggleMute);
 
         SetButton(LeftBtn, () => Slide(-1));
         SetButton(RightBtn, () => Slide(1));
@@ -166,7 +172,7 @@ public class UIManager : MonoBehaviour
         SetButton(QuitSplash_button, () => OpenPopup(QuitPopupObject));
         SetButton(AutoSpinButton, () => OpenPopup(autoSpinPopupObject));
         SetButton(AutoSpinPopUpClose, () => ClosePopup());
-        SetButton(cancelWinButton, () => CloseWinAnimation());
+        SetButton(cancelWinButton, RequestSkipWin);
         // Initialize other settings
         paytableList[CurrentIndex = 0].SetActive(true);
         isMusic = false;
@@ -270,7 +276,7 @@ public class UIManager : MonoBehaviour
             text = "";
             for (int j = 0; j < uIData.paylines.symbols[i].multiplier.Count; j++)
             {
-                text += $"{6 - j}x - {uIData.paylines.symbols[i].multiplier[j] * currentBet} \n";
+                text += $"{6 - j}x {uIData.paylines.symbols[i].multiplier[j] * currentBet} \n";
             }
             SymbolsText[i].text = text;
         }
@@ -295,8 +301,6 @@ public class UIManager : MonoBehaviour
         }
 
         Bat_Text.text = multiplierRow + "\n" + valueRow;
-
-
 
     }
 
@@ -402,25 +406,69 @@ public class UIManager : MonoBehaviour
         ClosePopup();
         FreeSpinCount.text = "0";
     }
-    internal void EnableWinPopUp(int value)
+    private bool skipWinRequested;
+    private bool winLoopStarted;
+
+    internal void ShowWinPopup(bool isBigWin, double amount)
     {
+        StartCoroutine(WinPopupRoutine(isBigWin, amount));
+    }
+
+    private IEnumerator WinPopupRoutine(bool isBigWin, double amount)
+    {
+        SpineAnimController activeWin = isBigWin ? BigWin : NormalWin;
+        Vector2 textPos = isBigWin ? BigWin_textPosition : NormalWin_textPosition;
+
+        NormalWin.gameObject.SetActive(!isBigWin);
+        BigWin.gameObject.SetActive(isBigWin);
+
+        skipWinRequested = false;
+        winLoopStarted = false;
+        Win_Text.gameObject.SetActive(false);
+        Win_Text.transform.localPosition = new Vector3(textPos.x, textPos.y, 0f);
 
         OpenPopup(WinPopup_Object);
-        if (value > 0)
-            specialWinObject.SetActive(true);
 
-        switch (value)
+        // appear
+        activeWin.PlayAnimation("appear", false);
+        yield return new WaitForSeconds(activeWin.GetAnimationDuration() - 0.5f);
+
+        // text reveals only once appear finishes
+        Win_Text.gameObject.SetActive(true);
+        double initAmount = 0;
+        DOTween.To(() => initAmount, (val) => initAmount = val, amount, 0.8f)
+            .OnUpdate(() => Win_Text.text = initAmount.ToString("f3"))
+            .OnComplete(() => Win_Text.text = amount.ToString("f3"));
+
+        // loop (skip is only honored from here on)
+        activeWin.PlayAnimation("loop", true);
+        winLoopStarted = true;
+
+        float elapsed = 0f;
+        while (elapsed < 1.8f && !skipWinRequested)
         {
-            case 1:
-                specialWinTitle.text = "BIG WIN";
-                break;
-            case 2:
-                specialWinTitle.text = "HUGE WIN";
-                break;
-            case 3:
-                specialWinTitle.text = "MEGA WIN";
-                break;
+            elapsed += Time.deltaTime;
+            yield return null;
         }
+
+        // close
+        activeWin.PlayAnimation("close", false);
+        yield return new WaitForSeconds(activeWin.GetAnimationDuration());
+        Win_Text.transform.DOLocalMoveY(-411, 0.35f);
+        Win_Text.transform.DOScale(Vector3.zero, 0.4f);
+        yield return new WaitForSeconds(activeWin.GetAnimationDuration());
+
+        ClosePopup();
+        DOTween.Kill(Win_Text.transform);
+        Win_Text.transform.localScale = Vector3.one;
+        Win_Text.text = "0";
+        GameManager.winAnimation = false;
+    }
+
+    private void RequestSkipWin()
+    {
+        if (winLoopStarted)
+            skipWinRequested = true;
     }
 
     internal void DeductBalanceAnim(double finalAmount, double initAmount)
@@ -437,53 +485,6 @@ public class UIManager : MonoBehaviour
         });
     }
 
-    internal IEnumerator WinTextAnim(double amount)
-    {
-        normalWinImage.gameObject.SetActive(true);
-        double initAmount = 0;
-        DOTween.To(() => initAmount, (val) => initAmount = val, amount, 0.8f).OnUpdate(() =>
-        {
-            Win_Text.text = initAmount.ToString("f3");
-
-        }).OnComplete(() =>
-        {
-
-            Win_Text.text = amount.ToString("f3");
-            if (normalWinImage.gameObject.activeSelf)
-                normalWinImage.gameObject.SetActive(false);
-        });
-        yield return new WaitForSeconds(1.8f);
-
-        Win_Text.transform.DOLocalMoveY(-411, 0.35f);
-        Win_Text.transform.DOScale(new Vector3(0, 0, 0), 0.4f).OnComplete(() =>
-        {
-            ClosePopup();
-            Win_Text.transform.localScale = Vector3.one;
-            Win_Text.transform.localPosition = Vector3.zero;
-            Win_Text.text = "0";
-
-
-        });
-        yield return new WaitForSeconds(0.5f);
-        specialWinObject.SetActive(false);
-        CloseWinAnimation();
-
-
-    }
-
-    void CloseWinAnimation()
-    {
-        ClosePopup();
-        if (normalWinImage.gameObject.activeSelf)
-            normalWinImage.gameObject.SetActive(false);
-
-        DOTween.Kill(Win_Text.transform);
-        Win_Text.transform.localScale = Vector3.one;
-        Win_Text.transform.localPosition = Vector3.zero;
-        Win_Text.text = "0";
-        specialWinObject.SetActive(false);
-        GameManager.winAnimation = false;
-    }
     internal void DisconnectionPopup()
     {
         if (!isExit)
@@ -533,13 +534,13 @@ public class UIManager : MonoBehaviour
             isSound = !isSound;
             isMusic = !isMusic;
             ToggleAudio?.Invoke(true, "all");
-            Mute_button.transform.GetChild(1).gameObject.SetActive(true);
-            Mute_button.transform.GetChild(0).gameObject.SetActive(false);
+            UnMute_button.gameObject.SetActive(true);
+            Mute_button.gameObject.SetActive(false);
         }
         else
         {
-            Mute_button.transform.GetChild(1).gameObject.SetActive(false);
-            Mute_button.transform.GetChild(0).gameObject.SetActive(true);
+            UnMute_button.gameObject.SetActive(false);
+            Mute_button.gameObject.SetActive(true);
             ToggleSound();
             ToggleMusic();
         }
