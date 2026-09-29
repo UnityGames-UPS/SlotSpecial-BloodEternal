@@ -53,6 +53,7 @@ public class UIManager : MonoBehaviour
     [SerializeField] private Button MusicToggle_button;
     [SerializeField] private Button Mute_button;
     [SerializeField] private Button UnMute_button;
+    [SerializeField] private TMP_Text Mute_Text;
     [SerializeField] private Sprite empty;
     [SerializeField] private Sprite button;
     private bool isMusic = true;
@@ -536,11 +537,13 @@ public class UIManager : MonoBehaviour
             ToggleAudio?.Invoke(true, "all");
             UnMute_button.gameObject.SetActive(true);
             Mute_button.gameObject.SetActive(false);
+            Mute_Text.text = "Unmute";
         }
         else
         {
             UnMute_button.gameObject.SetActive(false);
             Mute_button.gameObject.SetActive(true);
+            Mute_Text.text = "Mute";
             ToggleSound();
             ToggleMusic();
         }

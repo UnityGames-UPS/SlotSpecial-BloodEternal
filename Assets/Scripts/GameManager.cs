@@ -618,7 +618,7 @@ public class GameManager : MonoBehaviour
                 SetActiveWinLineText(rowIndex, lineWin.lineWin);
 
                 PayLineCOntroller.GeneratePayline(lineIndex);
-                yield return new WaitForSeconds(0.8f);
+                yield return new WaitForSeconds(1.5f);
                 slotManager.ShowOnlyIcons(socketController.socketModel.resultGameData.features.bats.positions);
 
                 PayLineCOntroller.ResetLines(true);
