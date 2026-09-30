@@ -121,7 +121,7 @@ TextureImporter:
         width: 1774
         height: 887
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -134,11 +134,33 @@ TextureImporter:
       indices: 
       edges: []
       weights: []
+    - serializedVersion: 2
+      name: ChatGPT Image Sep 10_ 2026_ 07_38_04 PM_1
+      rect:
+        serializedVersion: 2
+        x: 198
+        y: 769
+        width: 183
+        height: 31
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: dbeb95fd7477f4e1288cc9711671bf93
+      internalID: 107916565
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
     outline: []
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 
+    spriteID: 11d03bd9aa2a048f6826be51d3ddb735
     internalID: 0
     vertices: []
     indices: 
@@ -149,6 +171,7 @@ TextureImporter:
       entries: []
     nameFileIdTable:
       ChatGPT Image Sep 10_ 2026_ 07_38_04 PM_0: 1353817791420014368
+      ChatGPT Image Sep 10_ 2026_ 07_38_04 PM_1: 107916565
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
